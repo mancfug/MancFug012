@@ -4,5 +4,5 @@ open Xunit
 open FsUnit.Xunit
 
 [<Fact>]
-let ``True is true`` () =
-    true |> should be True
+let ``Hello world`` () =
+    Trade.greet "World" |> should equal "Hello, World!"
