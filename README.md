@@ -20,4 +20,4 @@ The kata is to create something that implements a trailing stop loss and to do i
 
 You will receive a "PriceChanged" message every time the price changes. Just implement it as a method that receives that message (assume later you will hook it up into something that provides that)
 
-It will be fun to write the tests no? keep reading down for hints .......
+It will be fun to write the tests no?
