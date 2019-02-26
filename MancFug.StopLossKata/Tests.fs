@@ -13,21 +13,35 @@ type Command =
     | StockPriceChanges of int * DateTime
     | CheckIfPriceShouldBeHeld of int * DateTime
 
+module Projections =
+    let minimumPriceInAfter (givenHistory : Event list) earliestDate =
+      givenHistory 
+      |> Seq.choose (fun e -> // could be a function here, if i can figure the syntax
+        match e with
+        | PriceChanged (change,date) when date >= earliestDate -> Some change
+        | _ -> None )
+      |> Seq.min
+
 module Handler =
-    let stockBought (change, date) = [
-      PriceChanged (change, date) 
-      PriceHeldAt (change, date) ]
-    let stockPriceChange (change,date:DateTime) = [
-      PriceChanged (change, date) 
-      CheckPriceHeldLogged(change, date.AddSeconds 15.0)]
-    let checkIfPriceHeld (change,date:DateTime) = [
-      PriceHeldAt (change, date) ]
+    let stockBought (price, date) = [
+      PriceChanged (price, date) 
+      PriceHeldAt (price, date) ]
+    let stockPriceChange (newPrice,date:DateTime) = [
+      PriceChanged (newPrice, date) 
+      CheckPriceHeldLogged(newPrice, date.AddSeconds 15.0)]
+    let checkIfPriceHeld (givenHistory : Event list) (priceToHold,date:DateTime) = 
+      let minimumPriceInLast15Seconds = Projections.minimumPriceInAfter givenHistory (date.AddSeconds -15.0)
+      if minimumPriceInLast15Seconds < priceToHold then
+        []
+      else
+        [
+          PriceHeldAt (priceToHold, date) ]
 
 let execute (givenHistory : Event list) (command : Command) : Event list =
   match command with
-  | StockIsBought (change,date) -> Handler.stockBought (change, date)
-  | StockPriceChanges (change,date) -> Handler.stockPriceChange (change, date)
-  | CheckIfPriceShouldBeHeld (change,date) -> Handler.checkIfPriceHeld (change, date)
+  | StockIsBought (originalPrice,date) -> Handler.stockBought (originalPrice, date)
+  | StockPriceChanges (changedPrice,date) -> Handler.stockPriceChange (changedPrice, date)
+  | CheckIfPriceShouldBeHeld (holdPrice,date) -> Handler.checkIfPriceHeld givenHistory (holdPrice, date)
     
 let Given (events : Event list) = events
 
@@ -69,3 +83,9 @@ let ``price should be held if it has changed in over 15 seconds`` () =
   Given [PriceChanged (10, baseLine)]
   |> When (CheckIfPriceShouldBeHeld (10, baseLine.AddSeconds 15.0))
   |> ThenExpect [ PriceHeldAt (10, baseLine.AddSeconds 15.0) ]
+
+[<Fact>]
+let ``price should not be held if it dips within 15 seconds`` () =
+  Given [PriceChanged (9, baseLine)]
+  |> When (CheckIfPriceShouldBeHeld (10, baseLine.AddSeconds 1.0))
+  |> ThenExpect [ ]
