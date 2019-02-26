@@ -11,7 +11,7 @@ type Event =
 type Command =
     | StockIsBought of int * DateTime
     | StockPriceChanges of int * DateTime
-    | CheckIfPriceShouldBeHeld
+    | CheckIfPriceShouldBeHeld of int * DateTime
 
 module Handler =
     let stockBought (change, date) = [
@@ -20,12 +20,14 @@ module Handler =
     let stockPriceChange (change,date:DateTime) = [
       PriceChanged (change, date) 
       CheckPriceHeldLogged(change, date.AddSeconds 15.0)]
+    let checkIfPriceHeld (change,date:DateTime) = [
+      PriceHeldAt (change, date) ]
 
 let execute (givenHistory : Event list) (command : Command) : Event list =
   match command with
   | StockIsBought (change,date) -> Handler.stockBought (change, date)
   | StockPriceChanges (change,date) -> Handler.stockPriceChange (change, date)
-  | CheckIfPriceShouldBeHeld -> []
+  | CheckIfPriceShouldBeHeld (change,date) -> Handler.checkIfPriceHeld (change, date)
     
 let Given (events : Event list) = events
 
@@ -62,3 +64,8 @@ let ``when price changes our future selves should check if it should be held`` (
     PriceChanged (11, baseLine.AddSeconds 10.0)
     CheckPriceHeldLogged (11, baseLine.AddSeconds 25.0) ]
 
+[<Fact>]
+let ``price should be held if it has changed in over 15 seconds`` () =
+  Given [PriceChanged (10, baseLine)]
+  |> When (CheckIfPriceShouldBeHeld (10, baseLine.AddSeconds 15.0))
+  |> ThenExpect [ PriceHeldAt (10, baseLine.AddSeconds 15.0) ]
