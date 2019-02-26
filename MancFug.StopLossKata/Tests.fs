@@ -89,3 +89,9 @@ let ``price should not be held if it dips within 15 seconds`` () =
   Given [PriceChanged (9, baseLine)]
   |> When (CheckIfPriceShouldBeHeld (10, baseLine.AddSeconds 1.0))
   |> ThenExpect [ ]
+
+[<Fact>]
+let ``price should be held if it goes up within 15 seconds`` () =
+  Given [PriceChanged (11, baseLine)]
+  |> When (CheckIfPriceShouldBeHeld (10, baseLine.AddSeconds 1.0))
+  |> ThenExpect [ PriceHeldAt (10, baseLine.AddSeconds 1.0) ]
